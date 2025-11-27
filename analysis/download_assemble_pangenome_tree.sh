@@ -12,7 +12,22 @@ if [[ -z "$PROJECT_ID" ]]; then
   exit 1
 fi
 
+#====================================
+# Create timestamped logfile
+LOG_DIR="outputs/${PROJECT_ID}/logs"
 
+mkdir -p \
+  "${LOG_DIR}" 
+ 
+LOG_FILE="${LOG_DIR}/pipeline_$(date +'%Y-%m-%d_%H-%M-%S').log"
+
+echo "[INFO] Logging to: $LOG_FILE"
+
+# Redirect *everything* to both terminal and logfile
+exec > >(tee -a "$LOG_FILE") 2>&1
+
+
+#====================================
 echo "Running pipeline for project: ${PROJECT_ID}"
 
 # Initialize conda for non-interactive shells
@@ -109,11 +124,9 @@ activate_and_export "ncbi_datasets"
 
 mkdir -p \
   "outputs/${PROJECT_NAME}/reference_genomes" \
-  "outputs/${PROJECT_NAME}/logs" \
   "outputs/${PROJECT_NAME}/all_genomes" \
  
 BASE_DIR="outputs/${PROJECT_NAME}"
-LOG_DIR="outputs/${PROJECT_NAME}/logs"
 
 # =================================================
 # =================================================
@@ -501,10 +514,9 @@ WORKING_DIR="${BASE_DIR}/anvio"
 ANVIO_DB_DIR="${WORKING_DIR}/dbs"
 ANVIO_PAN_DIR="${WORKING_DIR}/pangenome"
 ANVIO_TREE_DIR="${WORKING_DIR}/tree"
-CLEAN_GENOMES_DIR="${ANVIO_DB_DIR}/genomes"
+CLEAN_GENOMES_DIR="${WORKING_DIR}/clean_genomes"
 
 mkdir -p \
-  "${WORKING_DIR}/genomes" \
   "${ANVIO_DB_DIR}" \
   "${ANVIO_PAN_DIR}" \
   "${ANVIO_TREE_DIR}" \
@@ -520,27 +532,57 @@ ls "${ALL_GENOMES_DIR}"/*.fasta \
 # Reformat FASTA & build contigs DBs
 ###############################
 
+# Reformat FASTA files, wrapped in logic to skip existing files
 while read -r g; do
-  echo "Reformatting FASTA for ${g} ..."
+  # Skip blank lines
+  [[ -z "$g" ]] && continue
+
+  INPUT="${ALL_GENOMES_DIR}/${g}.fasta"
+  OUTPUT="${CLEAN_GENOMES_DIR}/${g}_contigs.fasta"
+
+  if [[ -s "$OUTPUT" ]]; then
+    echo "[INFO] ${OUTPUT} already exists — skipping."
+    continue
+  fi
+  echo "[INFO] Reformatting FASTA for ${g}..."
   anvi-script-reformat-fasta \
-    "${ALL_GENOMES_DIR}/${g}.fasta" \
-    -o "${CLEAN_GENOMES_DIR}/${g}_contigs.fasta" \
+    "$INPUT" \
+    -o "$OUTPUT" \
     --simplify-names
+
 done < "${WORKING_DIR}/genomes.txt"
 
-# Make contigs databases
-for g in $(cat "${WORKING_DIR}/genomes.txt"); do
-  echo
-  echo "Generating contigs database for ${g} ..."
-  echo
-  anvi-gen-contigs-database \
-    -f "${CLEAN_GENOMES_DIR}/${g}_contigs.fasta" \
-    -o "${ANVIO_DB_DIR}/${g}.db" \
-    -n "${g}"
-done
 
-# Get rid of clean contigs to save space
-rm -rf "${CLEAN_GENOMES_DIR}"
+# Build contigs DBs, wrapped in logic to skip existing files because anvi'o will throw an error if they already exist
+while read -r g; do
+  # Skip blank lines
+  [[ -z "$g" ]] && continue
+
+  INPUT="${CLEAN_GENOMES_DIR}/${g}_contigs.fasta"
+  OUTPUT="${ANVIO_DB_DIR}/${g}.db"
+
+  # Skip if output already exists
+  if [[ -s "$OUTPUT" ]]; then
+    echo "[INFO] ${OUTPUT} already exists — skipping."
+    continue
+  fi
+
+  # Warn + skip if input missing
+  if [[ ! -s "$INPUT" ]]; then
+    echo "[WARN] Missing input FASTA: $INPUT — skipping ${g}"
+    continue
+  fi
+
+  echo
+  echo "[INFO] Generating contigs database for ${g} ..."
+  echo
+
+  anvi-gen-contigs-database \
+    -f "$INPUT" \
+    -o "$OUTPUT" \
+    -n "$g"
+
+done < "${WORKING_DIR}/genomes.txt"
 
 
 ###############################
@@ -551,14 +593,34 @@ rm -rf "${CLEAN_GENOMES_DIR}"
 RUN_TRNAS=$(yq -r '.anvio_parameters.annotate_trnas' "${CONFIG_FILE}")
 RUN_COGS=$(yq -r '.anvio_parameters.annotate_ncbi_cogs' "$CONFIG_FILE")
 RUN_KEGG=$(yq -r '.anvio_parameters.annotate_kegg_kofams' "$CONFIG_FILE")
+RUN_SCG=$(yq -r '.anvio_parameters.annotate_scg_taxonomy' "$CONFIG_FILE")
 
-for g in "${ANVIO_DB_DIR}"/*.db; do
-  echo "Processing ${g}"
+
+
+
+# Skip if output already exists
+while read -r g; do
+
+  # Skip blank lines
+  [[ -z "$g" ]] && continue
+
+  OUTPUT="${ANVIO_DB_DIR}/${g}.db"
+
+  if [[ -s "$OUTPUT" ]]; then
+    echo "[INFO] ${OUTPUT} already exists — skipping db annotation."
+    continue
+  fi
+
+  echo   echo "Processing ${g}"
 
   # ALWAYS run HMMs and SCG taxonomy for trees
   echo "  ➜ Running HMMs"
   anvi-run-hmms -c "$g"
-  anvi-run-scg-taxonomy -c "$g"
+
+  if [[ "$RUN_SCG" == "YES" ]]; then
+    echo "  ➜ Running SCG taxonomy"
+    anvi-run-scg-taxonomy -c "$g"
+  fi
 
   if [[ "$RUN_TRNAS" == "YES" ]]; then
     echo "  ➜ Scanning tRNAs"
@@ -575,20 +637,41 @@ for g in "${ANVIO_DB_DIR}"/*.db; do
     anvi-run-kegg-kofams -c "$g"
   fi
 
-done
+done < "${WORKING_DIR}/genomes.txt"
 
 
 ###############################
 # Genomes file + completeness
 ###############################
 
-anvi-script-gen-genomes-file \
-  --input-dir "${ANVIO_DB_DIR}" \
-  -o "${WORKING_DIR}/final-genomes.txt"
+OUTPUT="${WORKING_DIR}/final-genomes.txt"
 
-anvi-estimate-genome-completeness \
-  -e "${WORKING_DIR}/final-genomes.txt" \
-  > "${WORKING_DIR}/genome_completeness.txt" 2>&1
+if [[ -s "$OUTPUT" ]]; then
+  echo "[INFO] $OUTPUT already exists — skipping anvi-estimate-genome-completeness"
+else
+  echo "[INFO] Generating final genomes list "
+
+  anvi-script-gen-genomes-file \
+    --input-dir "${ANVIO_DB_DIR}" \
+    -o "${OUTPUT}"
+
+fi
+
+
+# Estimate genome completeness, wrapped in logic to skip existing file
+OUTPUT="${WORKING_DIR}/genome_completeness.txt"
+INPUT="${WORKING_DIR}/final-genomes.txt"
+
+if [[ -s "$OUTPUT" ]]; then
+  echo "[INFO] $OUTPUT already exists — skipping anvi-estimate-genome-completeness"
+else
+  echo "[INFO] Running anvi-estimate-genome-completeness..."
+
+  anvi-estimate-genome-completeness \
+    -e "$INPUT" \
+    > "$OUTPUT" 2>&1
+fi
+
 
 rm -f "${WORKING_DIR}/genomes.txt"
 
@@ -596,39 +679,152 @@ rm -f "${WORKING_DIR}/genomes.txt"
 # Pangenome
 ###############################
 
-anvi-gen-genomes-storage \
-  -e "${WORKING_DIR}/final-genomes.txt" \
-  -o "${ANVIO_PAN_DIR}/GENOMES.db"
+GENOMES_TXT="${WORKING_DIR}/final-genomes.txt"
+STORAGE_DB="${ANVIO_PAN_DIR}/GENOMES.db"
+PAN_DIR="PANGENOME"   # anvi'o will create this dir
 
-anvi-pan-genome \
-  -g "${ANVIO_PAN_DIR}/GENOMES.db" \
-  --project-name "PANGENOME" \
-  --num-threads 4
+# Guard: input must exist
+if [[ ! -s "$GENOMES_TXT" ]]; then
+  echo "[ERROR] Missing or empty: $GENOMES_TXT — cannot build genome storage"
+  exit 1
+fi
 
-mv PANGENOME/ "${ANVIO_PAN_DIR}/PANGENOME/"
+# 1) GENOMES storage
+if [[ -s "$STORAGE_DB" ]]; then
+  echo "[INFO] $STORAGE_DB already exists — skipping anvi-gen-genomes-storage"
+else
+  echo "[INFO] Building genomes storage: $STORAGE_DB"
+
+  anvi-gen-genomes-storage \
+    -e "$GENOMES_TXT" \
+    -o "$STORAGE_DB"
+fi
+
+
+# 2) Pangenome
+if [[ -d "${ANVIO_PAN_DIR}/PANGENOME/" ]]; then
+  echo "[INFO] PANGENOME already exists — skipping anvi-pan-genome"
+else
+  echo "[INFO] Running anvi-pan-genome"
+
+  anvi-pan-genome \
+    -g "$STORAGE_DB" \
+    --project-name "PANGENOME" \
+    --num-threads 4
+
+  mv PANGENOME/ "${ANVIO_PAN_DIR}/PANGENOME/"
+
+fi
+
+
+
 
 
 ###############################
 # SCG alignment + tree
 ###############################
 
-N=$(($(wc -l < "${WORKING_DIR}/final-genomes.txt") - 1))
-echo "Total number of genomes: ${N}"
+GENOMES_TXT="${WORKING_DIR}/final-genomes.txt"
+GENOMES_DB="${ANVIO_PAN_DIR}/GENOMES.db"
+PAN_DB="${ANVIO_PAN_DIR}/PANGENOME/PANGENOME-PAN.db"
 
 FILE_NAME="${ANVIO_TREE_DIR}/SCG_${FUN_HOM_INDEX_MAX}"
+FA="${FILE_NAME}.fa"
+NWK="${FILE_NAME}.nwk"
 
-anvi-get-sequences-for-gene-clusters \
-  -g "${ANVIO_PAN_DIR}/GENOMES.db" \
-  -p "${ANVIO_PAN_DIR}/PANGENOME/PANGENOME-PAN.db" \
-  -o "${FILE_NAME}.fa" \
-  --concatenate-gene-clusters \
-  --min-num-genomes-gene-cluster-occurs "${N}" \
-  --max-num-genes-from-each-genome 1 \
-  --max-functional-homogeneity-index "${FUN_HOM_INDEX_MAX}" \
-  --align-with mafft
+# Guard: required inputs
+if [[ ! -s "$GENOMES_TXT" ]]; then
+  echo "[ERROR] Missing or empty: $GENOMES_TXT"
+  exit 1
+fi
 
-anvi-gen-phylogenomic-tree \
-  -f "${FILE_NAME}.fa" \
-  -o "${FILE_NAME}.nwk"
+if [[ ! -s "$GENOMES_DB" ]]; then
+  echo "[ERROR] Missing: $GENOMES_DB"
+  exit 1
+fi
+
+if [[ ! -s "$PAN_DB" ]]; then
+  echo "[ERROR] Missing: $PAN_DB"
+  exit 1
+fi
+
+# Calculate N safely (minus header line)
+N=$(($(wc -l < "$GENOMES_TXT") - 1))
+echo "[INFO] Total number of genomes: ${N}"
+
+if (( N <= 0 )); then
+  echo "[ERROR] N is <= 0 — check ${GENOMES_TXT}"
+  exit 1
+fi
 
 
+# 1) Get SCG sequences (FASTA)
+## This will start at the value you assigned in the config for functional_homogeneity_index_threshold, but if no gene clusters are found, it will incrementally increase it by 0.01 until it finds some or reaches 1.0.
+GENOMES_DB="${ANVIO_PAN_DIR}/GENOMES.db"
+PAN_DB="${ANVIO_PAN_DIR}/PANGENOME/PANGENOME-PAN.db"
+
+GENOMES_TXT="${WORKING_DIR}/final-genomes.txt"
+N=$(($(wc -l < "$GENOMES_TXT") - 1))
+echo "[INFO] Total number of genomes: ${N}"
+
+STEP=0.01
+FUN_HOM="${FUN_HOM_INDEX_MAX}"   # starting value, e.g. 0.95
+FOUND=0
+
+while (( $(echo "$FUN_HOM <= 1.000001" | bc -l) )); do
+  FILE_NAME="${ANVIO_TREE_DIR}/SCG_${FUN_HOM}"
+  FA="${FILE_NAME}.fa"
+
+  echo "[INFO] Trying max-functional-homogeneity-index=${FUN_HOM}"
+  echo "[INFO] Output FASTA: ${FA}"
+
+  # If this output already exists for this threshold, just use it
+  if [[ -s "$FA" ]]; then
+    echo "[INFO] ${FA} already exists — using this and skipping anvi-get-sequences-for-gene-clusters"
+    FOUND=1
+    break
+  fi
+
+  # Try to generate sequences
+  if anvi-get-sequences-for-gene-clusters \
+        -g "$GENOMES_DB" \
+        -p "$PAN_DB" \
+        -o "$FA" \
+        --concatenate-gene-clusters \
+        --min-num-genomes-gene-cluster-occurs "$N" \
+        --max-num-genes-from-each-genome 1 \
+        --max-functional-homogeneity-index "$FUN_HOM"; then
+
+      if [[ -s "$FA" ]]; then
+        echo "[INFO] Successfully generated ${FA} with max-functional-homogeneity-index=${FUN_HOM}"
+        FOUND=1
+        break
+      else
+        echo "[WARN] Command succeeded but ${FA} is empty — treating as failure."
+      fi
+  else
+      echo "[WARN] anvi-get-sequences-for-gene-clusters failed for max-functional-homogeneity-index=${FUN_HOM}"
+  fi
+
+  # Increment and try again
+  FUN_HOM=$(echo "$FUN_HOM + $STEP" | bc -l | xargs printf "%.2f")
+  echo "[INFO] Increasing max-functional-homogeneity-index to ${FUN_HOM} and retrying..."
+done
+
+if (( FOUND == 0 )); then
+  echo "[ERROR] No gene clusters found even with max-functional-homogeneity-index up to 1.0"
+  exit 1
+fi
+
+# At this point, we have a non-empty $FA and a final $FUN_HOM
+# You can use these for your tree step:
+NWK="${FILE_NAME}.nwk"
+
+if [[ -s "$NWK" ]]; then
+  echo "[INFO] $NWK already exists — skipping anvi-gen-phylogenomic-tree"
+else
+  echo "[INFO] Building phylogenomic tree → $NWK"
+  anvi-gen-phylogenomic-tree \
+    -f "$FA" \
+    -o "$NWK"
+fi

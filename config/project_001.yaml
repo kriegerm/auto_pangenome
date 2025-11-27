@@ -1,12 +1,12 @@
 # YAML 
-## Description: Uses S. mutans GCF_000007465.2 as an outgroup. Includes 40 randomly selected complete Limosilactobacillus fermentum genomes from NCBI to compare against the 5 SRA genomes lsited.  
+## Description: Uses GCF_034298135.1 as an outgroup. Includes 40 randomly selected complete Limosilactobacillus fermentum genomes from NCBI to compare against the 5 SRA genomes lsited.  
 
 project:
   name: "001"
 
 reference_genomes:
   accession_list:
-    - "GCF_000007465.2"  
+    - "GCF_034298135.1"
     - "GCF_051094935.1"
     - "GCF_029691425.1"
     - "GCF_000466785.3"
@@ -57,10 +57,11 @@ SRA_download:
     - "ERR570222"
 
 anvio_parameters:
-  functional_homogeneity_index_threshold: 0.95
+  functional_homogeneity_index_threshold: .95 #This will be the starting value; if no gene clusters are found, it will incrementally increase by 0.01 until some are found or it reaches 1.0.
   annotate_trnas: "NO"
   annotate_ncbi_cogs: "NO"
   annotate_kegg_kofams: "NO"
+  annotate_scg_taxonomy: "NO"
 
 
 clean_up_parameters:
