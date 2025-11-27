@@ -61,7 +61,6 @@ export CONFIG_FILE
 #Use yq to read variables from the config file 
 PROJECT_NAME=$(yq -r '.project.name' "$CONFIG_FILE")
 
-
 # Normalize possible "null" strings to empty
 for v in REF_TAX REF_ASSEMBLY_LEVEL REFERENCE_ONLY; do
   [[ "${!v:-}" == "null" ]] && declare "$v"=""
@@ -121,7 +120,6 @@ LOG_DIR="outputs/${PROJECT_NAME}/logs"
 # Download Reference Genomes
 # =================================================
 # =================================================
-
 
 #Keep this outside the loop so we can access it later even if it's empty
 REF_GENOMES_DIR="outputs/${PROJECT_NAME}/reference_genomes"
@@ -253,10 +251,34 @@ if [[ ${#SRA_GENOMES[@]} -gt 0 ]]; then
         if compgen -G "${SRA_DIR}/${ACC}_*.fastq.gz" > /dev/null; then
             echo "[INFO] FASTQs already exist for $ACC – skipping download."
         else
+
         # Otherwise, download it
             echo "[INFO] Downloading SRA for ${ACC}"
 
-            prefetch "${ACC}" --output-directory "${SRA_DIR}"
+            # The below lines will attempt to download it up to 10 times before giving up and exiting. 
+            ## Sometimes there's just some issue with prefetch where you have to run it mutliple times, so this avoids that 
+            max_attempts=10
+            attempt=1
+            success=0
+
+            while (( attempt <= max_attempts )); do
+                echo "[INFO] prefetch attempt ${attempt}/${max_attempts} for ${ACC}"
+                
+                if prefetch "${ACC}" --output-directory "${SRA_DIR}"; then
+                    success=1
+                    break
+                else
+                    echo "[WARN] prefetch failed for ${ACC} on attempt ${attempt}"
+                    (( attempt++ ))
+                    # optional: exponential backoff
+                    sleep $((attempt * 10))
+                fi
+            done
+
+            if (( success == 0 )); then
+                echo "[ERROR] prefetch failed for ${ACC} after ${max_attempts} attempts, skipping."
+                exit 1
+            fi
 
             fasterq-dump "${SRA_DIR}/${ACC}/${ACC}.sra" \
             --split-files \
@@ -409,7 +431,6 @@ if [[ ${#SRA_GENOMES[@]} -gt 0 ]]; then
             # Copy finished genome to final assemblies dir
             cp "$PILON_DIR/${ACC}_pilon1.fasta" "$FINAL_ASSEMBLY/${ACC}.fasta"
 
-            conda deactivate
 
         fi #Ends check for existing final assembly
     done #Ends loop through SRA accessions
@@ -469,11 +490,12 @@ done
 #====================================
 #====================================
 
-
+# Need to have the +u and -u set around this for some unknown reason
+set +u
 activate_and_export "anvio-8"
+set -u
 
-FUN_HOM_INDEX_MAX=$(yq -r '.anvio_parameters.functional_homogeneity_index_threshold' "$CONFIG_FILE")
-
+FUN_HOM_INDEX_MAX=$(yq -r '.anvio_parameters.functional_homogeneity_index_threshold' "${CONFIG_FILE}")
 
 WORKING_DIR="${BASE_DIR}/anvio"
 ANVIO_DB_DIR="${WORKING_DIR}/dbs"
@@ -499,7 +521,7 @@ ls "${ALL_GENOMES_DIR}"/*.fasta \
 ###############################
 
 while read -r g; do
-  echo "Reformatting FASTA for $g ..."
+  echo "Reformatting FASTA for ${g} ..."
   anvi-script-reformat-fasta \
     "${ALL_GENOMES_DIR}/${g}.fasta" \
     -o "${CLEAN_GENOMES_DIR}/${g}_contigs.fasta" \
@@ -509,12 +531,11 @@ done < "${WORKING_DIR}/genomes.txt"
 # Make contigs databases
 for g in $(cat "${WORKING_DIR}/genomes.txt"); do
   echo
-  echo "Generating contigs database for $g ..."
+  echo "Generating contigs database for ${g} ..."
   echo
   anvi-gen-contigs-database \
     -f "${CLEAN_GENOMES_DIR}/${g}_contigs.fasta" \
     -o "${ANVIO_DB_DIR}/${g}.db" \
-    --num-threads 4 \
     -n "${g}"
 done
 
@@ -527,7 +548,7 @@ rm -rf "${CLEAN_GENOMES_DIR}"
 ###############################
 
 # Read values from config
-RUN_TRNAS=$(yq -r '.anvio_parameters.annotate_trnas' "$CONFIG_FILE")
+RUN_TRNAS=$(yq -r '.anvio_parameters.annotate_trnas' "${CONFIG_FILE}")
 RUN_COGS=$(yq -r '.anvio_parameters.annotate_ncbi_cogs' "$CONFIG_FILE")
 RUN_KEGG=$(yq -r '.anvio_parameters.annotate_kegg_kofams' "$CONFIG_FILE")
 

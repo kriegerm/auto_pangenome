@@ -14,3 +14,4 @@ outputs/**
 # Ignore temporary files created by fasterq-dump
 fasterq.tmp*/
 .Rproj.user
+
