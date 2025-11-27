@@ -1,0 +1,16 @@
+# Ignore everything in outputs directory
+outputs/**
+
+# Unignore directory chain
+!outputs/
+!outputs/*/
+!outputs/*/anvio/
+!outputs/*/anvio/pangenome/
+!outputs/*/anvio/pangenome/tree/
+
+# Unignore ALL contents in tree
+!outputs/*/anvio/pangenome/tree/**
+
+# Ignore temporary files created by fasterq-dump
+fasterq.tmp*/
+.Rproj.user

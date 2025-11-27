@@ -1,0 +1,69 @@
+# YAML 
+## Description: Uses S. mutans GCF_000007465.2 as an outgroup. Includes 40 randomly selected complete Limosilactobacillus fermentum genomes from NCBI to compare against the 5 SRA genomes lsited.  
+
+project:
+  name: "001"
+
+reference_genomes:
+  accession_list:
+    - "GCF_000007465.2"  
+    - "GCF_051094935.1"
+    - "GCF_029691425.1"
+    - "GCF_000466785.3"
+    - "GCF_050032855.1"
+    - "GCF_030291755.1"
+    - "GCF_011032765.1"
+    - "GCF_034328545.1"
+    - "GCF_024665195.1"
+    - "GCF_029223965.1"
+    - "GCF_030290995.1"
+    - "GCF_030770375.1"
+    - "GCF_051094845.1"
+    - "GCF_028743095.1"
+    - "GCF_032598845.1"
+    - "GCF_012273035.1"
+    - "GCF_016861955.1"
+    - "GCF_004063515.1"
+    - "GCF_048833695.1"
+    - "GCF_024054255.2"
+    - "GCF_052784075.1"
+    - "GCF_004063635.1"
+    - "GCF_024637935.1"
+    - "GCF_009676625.1"
+    - "GCF_035621415.1"
+    - "GCF_003860425.1"
+    - "GCF_051045955.1"
+    - "GCF_051628875.1"
+    - "GCF_029537335.1"
+    - "GCF_008802915.1"
+    - "GCF_002119645.1"
+    - "GCF_040790835.1"
+    - "GCF_963237045.1"
+    - "GCF_022819245.1"
+    - "GCF_003255875.1"
+    - "GCF_017134335.1"
+    - "GCF_040235315.1"
+    - "GCF_029223925.1"
+    - "GCF_030665445.1"
+    - "GCF_040267735.1"
+    - "GCF_018866265.1"
+
+SRA_download:
+  accession_list:
+    - "ERR570130"
+    - "ERR570149"
+    - "ERR570161"
+    - "ERR570194"
+    - "ERR570222"
+
+anvio_parameters:
+  functional_homogeneity_index_threshold: 0.95
+  annotate_trnas: "NO"
+  annotate_ncbi_cogs: "NO"
+  annotate_kegg_kofams: "NO"
+
+
+clean_up_parameters:
+  remove_genome_assembly_intermediates: YES
+  remove_reference_genomes: NO
+  remove_anvio_databases: NO 

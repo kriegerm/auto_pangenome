@@ -1,0 +1,87 @@
+---
+title: "`r paste(params$species, params$genome_folder, 'Create Tree')`"
+date: "`r format(Sys.Date(), '%B %d, %Y')`"
+author: "Maddie Krieger"
+output: html_document
+params:
+  species: "Lactobacillus"
+  genome_folder: "sra_download_1"
+editor_options: 
+  markdown: 
+    wrap: sentence
+---
+
+Load libraries
+```{r}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+
+library(ape)
+library(ggtree)
+library(tidyverse)
+
+output_dir <- "../data/anvio/pangenome/trees/ggtree_figs"
+if (!dir.exists(output_dir)) {
+  dir.create(output_dir, recursive = TRUE)
+}
+```
+
+
+Load files
+```{r}
+tree_file <- "../data/anvio/pangenome/trees/SCG_funhom_0.95.nwk"
+tree <- read.tree(tree_file)
+tree
+```
+
+Clean up tip labels from the reference
+```{r}
+tree$tip.label <- ifelse(
+  str_detect(tree$tip.label, "^GCF"),
+  str_extract(tree$tip.label, "^GCF_[0-9]+"),
+  tree$tip.label
+)
+tree$tip.label
+```
+
+```{r}
+outgroup_label <- "Streptococcus_mutans_UA150"  # change to your exact tip label
+tree_rooted <- root(tree, outgroup = outgroup_label, resolve.root = TRUE)
+```
+
+
+```{r}
+tips <- tibble(label = tree_rooted$tip.label) %>%
+  mutate(
+    type = case_when(
+      str_detect(label, outgroup_label) ~ "Outgroup",
+      str_detect(label, "GCF")      ~ "Reference",
+      TRUE                          ~ "WGS"
+    )
+  )
+
+tips
+```
+
+
+```{r, fig.width=6, fig.height=6}
+
+p <- ggtree(tree_rooted) %<+% tips +
+  geom_tiplab(aes(color = type), size = 3) +
+  scale_color_brewer(palette = "Set1") +
+  theme_tree2() +
+  xlim_tree(1) +  # add extra space on the right (increase if needed)
+  theme(legend.position = "right")
+
+p
+
+ggsave(filename=paste0(output_dir, "/tree.png"),
+       plot=p,
+       width=6,
+       height=6,
+       units="in",
+       dpi=300)
+```
+
+
+
+
