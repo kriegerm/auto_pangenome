@@ -62,9 +62,3 @@ anvio_parameters:
   annotate_ncbi_cogs: "NO"
   annotate_kegg_kofams: "NO"
   annotate_scg_taxonomy: "NO"
-
-
-clean_up_parameters:
-  remove_genome_assembly_intermediates: YES
-  remove_reference_genomes: NO
-  remove_anvio_databases: NO 

@@ -270,7 +270,7 @@ if [[ ${#SRA_GENOMES[@]} -gt 0 ]]; then
 
             # The below lines will attempt to download it up to 10 times before giving up and exiting. 
             ## Sometimes there's just some issue with prefetch where you have to run it mutliple times, so this avoids that 
-            max_attempts=10
+            max_attempts=1
             attempt=1
             success=0
 
