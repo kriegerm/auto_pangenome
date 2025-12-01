@@ -5,11 +5,10 @@ outputs/**
 !outputs/
 !outputs/*/
 !outputs/*/anvio/
-!outputs/*/anvio/pangenome/
-!outputs/*/anvio/pangenome/tree/
+!outputs/*/anvio/tree/
 
 # Unignore ALL contents in tree
-!outputs/*/anvio/pangenome/tree/**
+!outputs/*/anvio/tree/**
 
 # Ignore temporary files created by fasterq-dump
 fasterq.tmp*/
