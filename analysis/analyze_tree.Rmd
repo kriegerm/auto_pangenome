@@ -4,8 +4,9 @@ date: "`r format(Sys.Date(), '%B %d, %Y')`"
 author: "Maddie Krieger"
 output: html_document
 params:
-  species: "Lactobacillus"
-  genome_folder: "sra_download_1"
+  project: "001"
+  fun_hom: "0.96"
+  outgroup: "GCF_000007465"
 editor_options: 
   markdown: 
     wrap: sentence
@@ -19,16 +20,21 @@ library(ape)
 library(ggtree)
 library(tidyverse)
 
-output_dir <- "../data/anvio/pangenome/trees/ggtree_figs"
+project_id <- params$project
+fun_hom <- params$fun_hom
+outgroup <- params$outgroup
+
+output_dir <- paste0("../outputs/", project_id, "/anvio/tree/ggtree_figs")
 if (!dir.exists(output_dir)) {
   dir.create(output_dir, recursive = TRUE)
 }
+
 ```
 
 
 Load files
 ```{r}
-tree_file <- "../data/anvio/pangenome/trees/SCG_funhom_0.95.nwk"
+tree_file <- paste0("../outputs/", project_id, "/anvio/tree/SCG_", fun_hom, ".nwk")
 tree <- read.tree(tree_file)
 tree
 ```
@@ -44,8 +50,7 @@ tree$tip.label
 ```
 
 ```{r}
-outgroup_label <- "Streptococcus_mutans_UA150"  # change to your exact tip label
-tree_rooted <- root(tree, outgroup = outgroup_label, resolve.root = TRUE)
+tree_rooted <- root(tree, outgroup = outgroup, resolve.root = TRUE)
 ```
 
 
@@ -53,7 +58,7 @@ tree_rooted <- root(tree, outgroup = outgroup_label, resolve.root = TRUE)
 tips <- tibble(label = tree_rooted$tip.label) %>%
   mutate(
     type = case_when(
-      str_detect(label, outgroup_label) ~ "Outgroup",
+      str_detect(label, outgroup) ~ "Outgroup",
       str_detect(label, "GCF")      ~ "Reference",
       TRUE                          ~ "WGS"
     )
@@ -63,21 +68,26 @@ tips
 ```
 
 
-```{r, fig.width=6, fig.height=6}
+```{r, fig.width=12, fig.height=8}
 
 p <- ggtree(tree_rooted) %<+% tips +
   geom_tiplab(aes(color = type), size = 3) +
-  scale_color_brewer(palette = "Set1") +
+  scale_color_manual(
+    values = c(
+      "WGS"      = "red",
+      "Outgroup" = "black",
+      "Reference" = "blue"
+    )) +
   theme_tree2() +
   xlim_tree(1) +  # add extra space on the right (increase if needed)
   theme(legend.position = "right")
 
 p
 
-ggsave(filename=paste0(output_dir, "/tree.png"),
+ggsave(filename=paste0(output_dir, "/", "SCG_", fun_hom, "_tree.png"),
        plot=p,
-       width=6,
-       height=6,
+       width=12,
+       height=8,
        units="in",
        dpi=300)
 ```
