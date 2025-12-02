@@ -4,8 +4,8 @@ date: "`r format(Sys.Date(), '%B %d, %Y')`"
 author: "Maddie Krieger"
 output: html_document
 params:
-  project: "001"
-  fun_hom: "0.96"
+  project: "002"
+  tree_name: "mashtree"
   outgroup: "GCF_000007465"
 editor_options: 
   markdown: 
@@ -21,7 +21,7 @@ library(ggtree)
 library(tidyverse)
 
 project_id <- params$project
-fun_hom <- params$fun_hom
+tree_name <- params$tree_name
 outgroup <- params$outgroup
 
 output_dir <- paste0("../outputs/", project_id, "/anvio/tree/ggtree_figs")
@@ -34,7 +34,7 @@ if (!dir.exists(output_dir)) {
 
 Load files
 ```{r}
-tree_file <- paste0("../outputs/", project_id, "/anvio/tree/SCG_", fun_hom, ".nwk")
+tree_file <- paste0("../outputs/", project_id, "/anvio/tree/", tree_name, ".nwk")
 tree <- read.tree(tree_file)
 tree
 ```
@@ -68,7 +68,7 @@ tips
 ```
 
 
-```{r, fig.width=12, fig.height=8}
+```{r, fig.width=5, fig.height=8}
 
 p <- ggtree(tree_rooted) %<+% tips +
   geom_tiplab(aes(color = type), size = 3) +
@@ -86,7 +86,7 @@ p
 
 ggsave(filename=paste0(output_dir, "/", "SCG_", fun_hom, "_tree.png"),
        plot=p,
-       width=12,
+       width=5,
        height=8,
        units="in",
        dpi=300)
