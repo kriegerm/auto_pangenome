@@ -329,7 +329,12 @@ reference_genomes:
 
 SRA_download:
   accession_list:
-
+    - "ERR570130"
+    - "ERR570149"
+    - "ERR570161"
+    - "ERR570194"
+    - "ERR570222"
+    
 anvio_parameters:
   run_full_anvio: "NO" #If NO, then mashtree will create a tree only. This is advised when you have more than 100 genomes!
   functional_homogeneity_index_threshold: .95 #This will be the starting value; if no gene clusters are found, it will incrementally increase by 0.01 until some are found or it reaches 1.0.
