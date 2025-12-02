@@ -4,9 +4,10 @@
 ##############################################################################
 
 # Conda env ncbi_datasets
-PROJECT_ID="001"
+PROJECT_ID="002"
+SELECT_GENOMES="NO"
 REF_TAXA="Limosilactobacillus fermentum"
-REF_ASSEMBLY_LEVEL="complete"
+REF_ASSEMBLY_LEVEL="complete,chromosome,scaffold,contig"
 
 REF_TAXA_DIR="outputs/${PROJECT_ID}/taxa_acc_search/$(echo "$REF_TAXA" | tr ' ' '_')"
 mkdir -p "${REF_TAXA_DIR}"
@@ -39,23 +40,44 @@ OUTFILE="${REF_TAXA_DIR}/all_genomes"
 # Randomly subset CSV to get a list of accessions
 ##############################################################################  
 
-# Get a random subset of n number of genomes from the CSV
-number_of_genomes_to_select=40
+if [ "${SELECT_GENOMES}" == "YES" ]; then
 
-{
-  head -n 1 ${OUTFILE}.csv
-  tail -n +2 ${OUTFILE}.csv | sort -R | head -n ${number_of_genomes_to_select}
-} > "${REF_TAXA_DIR}/${number_of_genomes_to_select}_selected_genomes.csv"
+  # Get a random subset of n number of genomes from the CSV
+  number_of_genomes_to_select=40
 
-# Create a text file of just the accessions for use in downloading genomes - copy/paste into the yaml
-awk -F',' '
-  NR>1 {
-    gsub(/"/, "", $1);                 # remove all double quotes from field 1
-    if ($1 ~ /^(GCF|GCA|ERR|SRR)/) {
-      print "- \"" $1 "\""
+  {
+    head -n 1 ${OUTFILE}.csv
+    tail -n +2 ${OUTFILE}.csv | sort -R | head -n ${number_of_genomes_to_select}
+  } > "${REF_TAXA_DIR}/${number_of_genomes_to_select}_selected_genomes.csv"
+
+  # Create a text file of just the accessions for use in downloading genomes - copy/paste into the yaml
+  awk -F',' '
+    NR>1 {
+      gsub(/"/, "", $1);                 # remove all double quotes from field 1
+      if ($1 ~ /^(GCF|GCA|ERR|SRR)/) {
+        print "- \"" $1 "\""
+      }
     }
-  }
-' "${REF_TAXA_DIR}/${number_of_genomes_to_select}_selected_genomes.csv" \
-  > "${REF_TAXA_DIR}/${number_of_genomes_to_select}_selected_genomes_for_yaml.txt"
+  ' "${REF_TAXA_DIR}/${number_of_genomes_to_select}_selected_genomes.csv" \
+    > "${REF_TAXA_DIR}/${number_of_genomes_to_select}_selected_genomes_for_yaml.txt"
 
+fi 
+
+
+if [ "${SELECT_GENOMES}" == "NO" ]; then
+  echo "Skipping random selection of genomes. To select genomes, set SELECT_GENOMES to YES."
+
+
+  # Create a text file of just the accessions for use in downloading genomes - copy/paste into the yaml
+  awk -F',' '
+    NR>1 {
+      gsub(/"/, "", $1);                 # remove all double quotes from field 1
+      if ($1 ~ /^(GCF|GCA|ERR|SRR)/) {
+        print "- \"" $1 "\""
+      }
+    }
+  ' "${OUTFILE}.csv" \
+    > "${REF_TAXA_DIR}/all_genomes_for_yaml.txt"
+
+fi 
 

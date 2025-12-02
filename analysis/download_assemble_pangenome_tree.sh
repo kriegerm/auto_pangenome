@@ -548,8 +548,8 @@ while read -r g; do
   anvi-script-reformat-fasta \
     "$INPUT" \
     -o "$OUTPUT" \
-    --simplify-names
-
+    --simplify-names \
+    --seq-type NT
 done < "${WORKING_DIR}/genomes.txt"
 
 
@@ -710,7 +710,8 @@ else
   anvi-pan-genome \
     -g "$STORAGE_DB" \
     --project-name "PANGENOME" \
-    --num-threads 4
+    --num-threads 4 \
+    --I-know-this-is-not-a-good-idea #Forces output even if we have a lot of genomes
 
   mv PANGENOME/ "${ANVIO_PAN_DIR}/PANGENOME/"
 
