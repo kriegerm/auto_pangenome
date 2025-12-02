@@ -6,7 +6,7 @@ output: html_document
 params:
   project: "002"
   tree_name: "mashtree"
-  outgroup: "GCF_000007465"
+  outgroup: "GCF_025311495"
 editor_options: 
   markdown: 
     wrap: sentence
@@ -68,7 +68,7 @@ tips
 ```
 
 
-```{r, fig.width=5, fig.height=8}
+```{r, fig.width=5, fig.height=25}
 
 p <- ggtree(tree_rooted) %<+% tips +
   geom_tiplab(aes(color = type), size = 3) +
@@ -84,7 +84,7 @@ p <- ggtree(tree_rooted) %<+% tips +
 
 p
 
-ggsave(filename=paste0(output_dir, "/", "SCG_", fun_hom, "_tree.png"),
+ggsave(filename=paste0(output_dir, "/", tree_name, "_tree.png"),
        plot=p,
        width=5,
        height=8,
