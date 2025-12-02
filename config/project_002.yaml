@@ -331,6 +331,7 @@ SRA_download:
   accession_list:
 
 anvio_parameters:
+  run_full_anvio: "NO" #If NO, then mashtree will create a tree only. This is advised when you have more than 100 genomes!
   functional_homogeneity_index_threshold: .95 #This will be the starting value; if no gene clusters are found, it will incrementally increase by 0.01 until some are found or it reaches 1.0.
   annotate_trnas: "NO"
   annotate_ncbi_cogs: "NO"

@@ -553,11 +553,16 @@ while read -r g; do
 done < "${WORKING_DIR}/genomes.txt"
 
 
-# Build contigs DBs, wrapped in logic to skip existing files because anvi'o will throw an error if they already exist
-while read -r g; do
-  # Skip blank lines
-  [[ -z "$g" ]] && continue
+# ----------------> THIS IS WHERE YOU RUN THE FULL ANVIO PIPELINE IF DESIRED <---------------- #
 
+RUN_FULL_ANVIO=$(yq -r '.anvio_parameters.run_full_anvio' "${CONFIG_FILE}")
+
+if [[ "$RUN_FULL_ANVIO" == "YES" ]]; then
+
+  # Build contigs DBs, wrapped in logic to skip existing files because anvi'o will throw an error if they already exist
+  while read -r g; do
+    # Skip blank lines
+    [[ -z "$g" ]] && continue
   INPUT="${CLEAN_GENOMES_DIR}/${g}_contigs.fasta"
   OUTPUT="${ANVIO_DB_DIR}/${g}.db"
 
@@ -829,3 +834,29 @@ else
     -f "$FA" \
     -o "$NWK"
 fi
+
+fi
+
+set +u
+conda deactivate
+set -u
+
+# ----------------> THIS IS WHERE YOU RUN THE FULL ANVIO PIPELINE IF DESIRED <---------------- #
+
+
+if [[ "$RUN_FULL_ANVIO" != "YES" ]]; then
+  echo "[INFO] Skipping full Anvi'o pipeline as per configuration - using mashtree"
+
+  activate_and_export "mashtree"
+
+  MASHTREE_OUTPUT="${ANVIO_TREE_DIR}/mashtree.nwk"
+
+  mashtree ${CLEAN_GENOMES_DIR}/*_contigs.fasta > "${MASHTREE_OUTPUT}"
+
+  conda deactivate
+
+fi
+
+
+
+
