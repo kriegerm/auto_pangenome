@@ -102,6 +102,12 @@ ensure_list() {
   " "$FILE"
 }
 
+ADDITIONAL_GENOMES=()
+while IFS= read -r line; do
+  [[ -z "$line" ]] && continue
+  ADDITIONAL_GENOMES+=("$line")
+done < <(yq -r '.additional_genomes.accession_list[]?' "$CONFIG_FILE")
+
 REF_GENOMES=()
 while IFS= read -r line; do
   [[ -z "$line" ]] && continue
@@ -127,6 +133,25 @@ mkdir -p \
   "outputs/${PROJECT_NAME}/all_genomes" \
  
 BASE_DIR="outputs/${PROJECT_NAME}"
+
+
+# =================================================
+# =================================================
+# Use extra genomes
+# =================================================
+# =================================================
+
+if [[ ${#ADDITIONAL_GENOMES[@]} -gt 0 ]]; then
+
+    for item in "${ADDITIONAL_GENOMES[@]}"; do
+        [[ -z "$item" ]] && continue
+
+        echo "[INFO] Adding additional genome: $item"
+
+        cp "additional_genomes/${item}" "outputs/${PROJECT_NAME}/all_genomes/${item}"
+
+      done
+fi
 
 # =================================================
 # =================================================
