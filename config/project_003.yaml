@@ -1,9 +1,6 @@
 # YAML 
 ## Re-doing the S. mutans genome from March 2023 to see if the mashtree results are the same as the anvio results I gave Stephanie before (because Anvi'o updated and doesn't want to run with so many genomes now)
 
-project:
-  name: "002"
-
 reference_genomes:
   accession_list:
   - "GCF_000339535"

@@ -1,8 +1,5 @@
-# YAML 
+# YAML version 1.1
 ## Description: Uses GCF_034298135.1 as an outgroup. Includes 40 randomly selected complete Limosilactobacillus fermentum genomes from NCBI to compare against the 5 SRA genomes lsited.  
-
-project:
-  name: "001"
 
 reference_genomes:
   accession_list:
