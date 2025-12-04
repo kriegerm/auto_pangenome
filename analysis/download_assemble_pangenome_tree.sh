@@ -2,19 +2,19 @@
 set -euo pipefail
 
 
-# RUN: bash scripts/project_setup.sh <PROJECT_ID>
+# RUN: bash scripts/project_setup.sh <PROJECT_NAME>
 
 # Grab the project ID from the first argument
-PROJECT_ID="${1:-}"
+PROJECT_NAME="${1:-}"
 
-if [[ -z "$PROJECT_ID" ]]; then
-  echo "Usage: $0 <PROJECT_ID>" >&2
+if [[ -z "$PROJECT_NAME" ]]; then
+  echo "Usage: $0 <PROJECT_NAME>" >&2
   exit 1
 fi
 
 #====================================
 # Create timestamped logfile
-LOG_DIR="outputs/${PROJECT_ID}/logs"
+LOG_DIR="outputs/${PROJECT_NAME}/logs"
 
 mkdir -p \
   "${LOG_DIR}" 
@@ -28,7 +28,7 @@ exec > >(tee -a "$LOG_FILE") 2>&1
 
 
 #====================================
-echo "Running pipeline for project: ${PROJECT_ID}"
+echo "Running pipeline for project: ${PROJECT_NAME}"
 
 # Initialize conda for non-interactive shells
 source "$(conda info --base)/etc/profile.d/conda.sh"
@@ -64,7 +64,7 @@ activate_and_export() {
 # =============================================================================
 
 #Access config files
-CONFIG_FILE="config/project_${PROJECT_ID}.yaml"
+CONFIG_FILE="config/project_${PROJECT_NAME}.yaml"
 
 if [[ ! -f "$CONFIG_FILE" ]]; then
   echo "ERROR: Config file not found: ${CONFIG_FILE}" >&2
@@ -72,16 +72,14 @@ if [[ ! -f "$CONFIG_FILE" ]]; then
 fi
 
 export CONFIG_FILE
+export PROJECT_NAME
 
-#Use yq to read variables from the config file 
-PROJECT_NAME=$(yq -r '.project.name' "$CONFIG_FILE")
 
 # Normalize possible "null" strings to empty
 for v in REF_TAX REF_ASSEMBLY_LEVEL REFERENCE_ONLY; do
   [[ "${!v:-}" == "null" ]] && declare "$v"=""
 done
 
-export PROJECT_NAME
 export REF_TAX
 export REF_ASSEMBLY_LEVEL
 
