@@ -1,0 +1,121 @@
+---
+title: "`r paste(params$species, params$genome_folder, 'Create Tree')`"
+date: "`r format(Sys.Date(), '%B %d, %Y')`"
+author: "Maddie Krieger"
+output: html_document
+params:
+  project: "003"
+  tree_name: "mashtree"
+  tree_comparison_name: "Project003_original-03-2023_anvio_tree"
+  outgroup: "GCF_003172975"
+editor_options: 
+  markdown: 
+    wrap: sentence
+---
+
+Load libraries
+```{r}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+
+library(ape)
+library(ggtree)
+library(tidyverse)
+
+project_id <- params$project
+tree_name <- params$tree_name
+comp_tree_name <- params$tree_comparison_name
+outgroup <- params$outgroup
+
+output_dir <- paste0("../outputs/", project_id, "/anvio/Project003_Smutans_tree_comps/ggtree_figs")
+if (!dir.exists(output_dir)) {
+  dir.create(output_dir, recursive = TRUE)
+}
+
+```
+
+
+Load files
+Mashtree tree
+```{r}
+tree_file <- paste0("../outputs/", project_id, "/anvio/tree/", tree_name, ".nwk")
+tree <- read.tree(tree_file)
+tree$tip.label <- gsub("_contigs$", "", tree$tip.label)
+
+tree_rooted <- root(tree, outgroup = outgroup, resolve.root = TRUE)
+
+```
+
+```{r}
+comp_tree_file <- paste0("../additional_genomes/", comp_tree_name, ".nwk")
+comp_tree <- read.tree(comp_tree_file)
+comp_tree
+
+comp_tree_rooted <- root(tree, outgroup = outgroup, resolve.root = TRUE)
+
+```
+
+Compare the two trees
+```{r}
+library(ape)
+library(phangorn)
+
+compare_trees <- function(ref_tree, comp_tree) {
+  # 1) Ensure same taxa
+  common <- intersect(ref_tree$tip.label, comp_tree$tip.label)
+  ref    <- keep.tip(ref_tree, common)
+  comp   <- keep.tip(comp_tree, common)
+  
+  ref  <- reorder(ref, "postorder")
+  comp <- reorder(comp, "postorder")
+  
+  # 2) RF distance (topology only)
+  rf_raw  <- RF.dist(ref, comp)  # from phangorn
+  rf_norm <- rf_raw / (2 * (length(common) - 3))  # normalized 0–1
+  
+  # 3) Branch-length-based + other distances
+  td <- treedist(ref, comp)  # named numeric vector
+  
+  symmetric_dist  <- td["symmetric.difference"]
+  branch_score    <- td["branch.score.difference"]
+  path_diff       <- td["path.difference"]
+  weighted_path   <- td["weighted.path.difference"]
+  
+  # 4) Cophenetic correlation
+  d1  <- cophenetic.phylo(ref)
+  d2  <- cophenetic.phylo(comp)
+  idx <- upper.tri(d1)
+  cophen_cor <- cor(d1[idx], d2[idx])
+  
+  list(
+    n_tips              = length(common),
+    rf_raw              = as.numeric(rf_raw),
+    rf_norm             = as.numeric(rf_norm),
+    symmetric_dist      = as.numeric(symmetric_dist),
+    branch_score        = as.numeric(branch_score),
+    path_diff           = as.numeric(path_diff),
+    weighted_path_diff  = as.numeric(weighted_path),
+    cophenetic_corr     = cophen_cor
+  )
+}
+
+
+metrics <- compare_trees(tree_rooted, comp_tree_rooted)
+metrics
+```
+**Explanation**
+
+rf_norm → 0 means identical topology, closer to 1 = more different
+
+branch_score → lower means branch lengths are more similar
+
+cophenetic_corr → 1 means pairwise distances are identical
+
+
+
+**Notes**
+
+Ok awesome, so the two trees are identical.
+
+
+
+

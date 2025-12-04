@@ -4,9 +4,10 @@ date: "`r format(Sys.Date(), '%B %d, %Y')`"
 author: "Maddie Krieger"
 output: html_document
 params:
-  project: "002"
+  project: "003"
   tree_name: "mashtree"
-  outgroup: "GCF_025311495"
+  outgroup: "GCF_003172975"
+  tree_metadata: "project003_metadata.csv"
 editor_options: 
   markdown: 
     wrap: sentence
@@ -23,10 +24,17 @@ library(tidyverse)
 project_id <- params$project
 tree_name <- params$tree_name
 outgroup <- params$outgroup
+tree_metadata <- params$tree_metadata
 
 output_dir <- paste0("../outputs/", project_id, "/anvio/tree/ggtree_figs")
 if (!dir.exists(output_dir)) {
   dir.create(output_dir, recursive = TRUE)
+}
+
+tree_metadata <- if (tree_metadata != "") {
+  read_csv(paste0("../tree_metadata/", tree_metadata, ".csv"))
+} else {
+  NULL
 }
 
 ```
@@ -46,6 +54,8 @@ tree$tip.label <- ifelse(
   str_extract(tree$tip.label, "^GCF_[0-9]+"),
   tree$tip.label
 )
+tree$tip.label <- gsub("_contigs", "", tree$tip.label)
+
 tree$tip.label
 ```
 
